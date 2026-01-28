@@ -9,10 +9,11 @@ import streamlit as st
 
 st.title("Thendo's First Streamlit App")
 
-st.title("myy App Is The Best")
+st.title("My App Is The Best")
 
 name = st.slider("Pick a number", 1, 100)
 st.write(f"You picked: {name}")
+
 
 
 
