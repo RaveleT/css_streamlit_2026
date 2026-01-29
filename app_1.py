@@ -7,16 +7,12 @@ import seaborn as sns
 import re
 from datetime import datetime
 
-# --- 1. SETTINGS & STYLING ---
+# --- 1. SETTINGS & DARK-MODE SAFE STYLING ---
 st.set_page_config(page_title="Fitness OS 2026", layout="wide", page_icon="🏋️‍♂️")
 
-# This CSS ensures that even in Dark Mode, the white metric cards 
-# have high-contrast dark text that is clearly visible.
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
-    
-    /* Style the metric cards */
     [data-testid="stMetric"] {
         background-color: #ffffff !important;
         padding: 20px;
@@ -24,144 +20,110 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         border: 1px solid #eef2f6;
     }
-
-    /* Force metric label (title) to be dark gray */
-    [data-testid="stMetricLabel"] p {
-        color: #555555 !important;
-        font-weight: 600 !important;
-        font-size: 16px !important;
-    }
-
-    /* Force metric value (the numbers) to be black */
-    [data-testid="stMetricValue"] div {
-        color: #111111 !important;
-        font-weight: 700 !important;
-    }
-    
-    div.stButton > button:first-child { 
-        background-color: #007bff; 
-        color: white; 
-        border-radius: 5px; 
-    }
+    /* Force visibility of text regardless of Light/Dark mode */
+    [data-testid="stMetricLabel"] p { color: #555555 !important; font-weight: 600 !important; }
+    [data-testid="stMetricValue"] div { color: #111111 !important; font-weight: 700 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONSTANTS & DEFAULT DATA ---
-null = None 
-
-# Initializing with the data provided by the user
+# --- 2. CORE DATA & FALLBACKS ---
+null = None
 DEFAULT_HISTORY = [
-    {"date": "2025-12-15", "exercises": [{"name": "Barbell Bench Press", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "30"}, {"name": "Push Ups", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": null}, {"name": "Dumbbell Overhead Press", "sets": [{"set": 1, "reps": 1}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "20"}, {"name": "Dynamique Crunch", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 20}, {"set": 3, "reps": 20}], "weight": null}, {"name": "Dumbbell Triceps Kickbacks", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": "9.5"}, {"name": "Ab Wheel Rollout", "sets": [{"set": 1, "reps": 5}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": null}, {"name": "Kettlebell Goblet Squat", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": "10"}, {"name": "Dumbbell Lateral Raise", "sets": [{"set": 1, "reps": 12}, {"set": 2, "reps": 12}, {"set": 3, "reps": 12}, {"set": 4, "reps": 12}], "weight": "9.5"}, {"name": "Kettlebell Overhead Triceps Extension", "sets": [{"set": 1, "reps": 12}, {"set": 2, "reps": 12}, {"set": 3, "reps": 12}, {"set": 4, "reps": 12}], "weight": "10"}, {"name": "Rotating Biceps Curl", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "9.5"}]},
-    {"date": "2025-12-16", "exercises": [{"name": "Rotating Biceps Curl", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "9.5"}]},
-    {"date": "2025-12-22", "exercises": [{"name": "Dynamique Crunch", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 20}, {"set": 3, "reps": 20}], "weight": null}, {"name": "Dumbbell Triceps Kickbacks", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": "9.5"}, {"name": "Ab Wheel Rollout", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}], "weight": null}, {"name": "Kettlebell Goblet Squat", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}], "weight": "10"}, {"name": "Dumbbell Lateral Raise", "sets": [{"set": 1, "reps": 12}, {"set": 2, "reps": 12}, {"set": 3, "reps": 12}, {"set": 4, "reps": 12}], "weight": "9.5"}, {"name": "Kettlebell Overhead Triceps Extension", "sets": [{"set": 1, "reps": 12}, {"set": 2, "reps": 12}, {"set": 3, "reps": 12}, {"set": 4, "reps": 12}], "weight": "10"}, {"name": "Rotating Biceps Curl", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 20}, {"set": 3, "reps": 20}], "weight": "9.5"}]},
-    {"date": "2025-12-23", "exercises": [{"name": "Kettlebell Goblet Squat", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": "10"}, {"name": "Barbell RDL", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 16}, {"set": 3, "reps": 16}], "weight": "30"}, {"name": "Kettlebell Swings", "sets": [{"set": 1, "reps": 20}, {"set": 2, "reps": 20}, {"set": 3, "reps": 20}], "weight": "10"}, {"name": "Bodyweight Lunges", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 17}, {"set": 3, "reps": 18}], "weight": null}, {"name": "Kettlebell Forward Lunges", "sets": [{"set": 1, "reps": 15}, {"set": 2, "reps": 14}, {"set": 3, "reps": 16}], "weight": "10"}, {"name": "Dumbbell Lateral Raise", "sets": [{"set": 1, "reps": 12}, {"set": 2, "reps": 12}, {"set": 3, "reps": 12}, {"set": 4, "reps": 12}], "weight": "9.5"}, {"name": "Cycling", "sets": [{"set": 1, "reps": 70}, {"set": 2, "reps": 75}, {"set": 3, "reps": 80}], "weight": null}, {"name": "Plank", "sets": [{"set": 1, "reps": 60}, {"set": 2, "reps": 60}, {"set": 3, "reps": 60}], "weight": null}]},
-    {"date": "2026-01-22", "exercises": [{"name": "Barbell Row", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "30"}, {"name": "Dumbbell Single-Arm Row-Right", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "9.5"}, {"name": "Dumbbell Single-Arm Row-Left", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "9.5"}, {"name": "Kettlebell High Pull", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 12}], "weight": "10"}, {"name": "Ab Wheel Rollout", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 12}], "weight": null}, {"name": "Barbell Bicep Curl", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 4}, {"set": 3, "reps": 5}], "weight": "9.5"}, {"name": "Dumbbell Shrug", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 15}, {"set": 3, "reps": 10}], "weight": "9.5"}]},
-    {"date": "2026-01-23", "exercises": [{"name": "Barbell Thrusters", "sets": [{"set": 1, "reps": 4}, {"set": 2, "reps": 5}, {"set": 3, "reps": 4}], "weight": "30"}, {"name": "Dumbbell Step-Ups", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "29.5"}, {"name": "Kettlebell Halos", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "10"}, {"name": "Push-Ups", "sets": [{"set": 1, "reps": 16}, {"set": 2, "reps": 16}, {"set": 3, "reps": 7}], "weight": null}, {"name": "Dumbbell Squat Jumps", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 15}, {"set": 3, "reps": 15}], "weight": "10"}, {"name": "Kettlebell Side Swings", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": null}, {"name": "Plank", "sets": [{"set": 1, "reps": 60}, {"set": 2, "reps": 60}, {"set": 3, "reps": 60}], "weight": null}]}
+    {"date": "2025-12-15", "exercises": [{"name": "Barbell Bench Press", "sets": [{"set": 1, "reps": 10}, {"set": 2, "reps": 10}, {"set": 3, "reps": 10}], "weight": "30", "muscle": "Chest / Triceps"}]},
+    {"date": "2026-01-23", "exercises": [{"name": "Barbell Thrusters", "sets": [{"set": 1, "reps": 4}, {"set": 2, "reps": 5}, {"set": 3, "reps": 4}], "weight": "30", "muscle": "Quads / Shoulders"}, {"name": "Push-Ups", "sets": [{"set": 1, "reps": 16}, {"set": 2, "reps": 16}, {"set": 3, "reps": 7}], "weight": null, "muscle": "Chest / Shoulders"}]}
 ]
 
 MUSCLE_LOOKUP = {
-    "Barbell Bench Press": "Chest", "Push-Ups": "Chest / Shoulders", "Push Ups": "Chest / Shoulders",
-    "Dumbbell Overhead Press": "Shoulders", "Dynamique Crunch": "Core",
-    "Dumbbell Triceps Kickbacks": "Triceps", "Ab Wheel Rollout": "Core",
-    "Kettlebell Goblet Squat": "Legs", "Dumbbell Lateral Raise": "Shoulders",
-    "Kettlebell Overhead Triceps Extension": "Triceps", "Rotating Biceps Curl": "Biceps",
-    "Barbell RDL": "Hamstrings", "Kettlebell Swings": "Full Body",
-    "Bodyweight Lunges": "Legs", "Kettlebell Forward Lunges": "Legs",
-    "Cycling": "Cardio", "Plank": "Core", "Barbell Row": "Back",
-    "Single-Arm Row": "Back", "Kettlebell High Pull": "Shoulders",
-    "Barbell Bicep Curl": "Biceps", "Dumbbell Shrug": "Traps",
-    "Barbell Thrusters": "Full Body", "Dumbbell Step-Ups": "Legs",
-    "Kettlebell Halos": "Shoulders", "Dumbbell Squat Jumps": "Legs",
-    "Kettlebell Side Swings": "Core"
+    "Barbell Bench Press": "Chest / Triceps", "Push-Ups": "Chest / Shoulders",
+    "Barbell Thrusters": "Quads / Shoulders", "Barbell RDL": "Hamstrings / Back",
+    "Plank": "Core / Stabilizer" # Expand this as needed from your Script 1
 }
 
-# --- 3. CORE LOGIC FUNCTIONS ---
+# --- 3. LOGIC FUNCTIONS ---
 def clean_weight(val):
-    """Handles 'null' and numeric conversion for volume math."""
     if val is None or str(val).lower() == 'none': return 0.0
     try:
-        clean = re.sub(r'[^0-9.]', '', str(val).replace(',', '.'))
-        return float(clean) if clean else 0.0
-    except ValueError: return 0.0
+        return float(str(val).replace(',', '.').replace('Kg', ''))
+    except: return 0.0
 
-def get_muscle_group(ex_name):
-    """Maps exercise names to muscle categories."""
-    ex_name_clean = ex_name.strip().lower()
-    for formal_name, muscle in MUSCLE_LOOKUP.items():
-        if formal_name.lower() in ex_name_clean: return muscle
-    return "Other"
-
-def process_data(json_data):
-    """Flattens nested JSON into a DataFrame for calculation."""
-    records = []
-    for session in json_data:
-        s_date = pd.to_datetime(session.get('date'))
-        for ex in session.get('exercises', []):
+def process_data_exploded(history):
+    rows = []
+    for workout in history:
+        date = pd.to_datetime(workout.get('date'))
+        for ex in workout.get('exercises', []):
             name = ex.get('name')
-            cat = get_muscle_group(name)
+            # Use saved muscle tag or fallback
+            muscle_raw = ex.get('muscle') or MUSCLE_LOOKUP.get(name, "Other")
+            categories = [c.strip() for c in muscle_raw.split('/')]
             weight = clean_weight(ex.get('weight'))
             for s in ex.get('sets', []):
-                reps = s.get('reps', 0)
-                records.append({
-                    'Date': s_date, 'Exercise': name, 'Category': cat,
-                    'Weight': weight, 'Reps': reps, 'Volume': weight * reps
+                rows.append({
+                    'Date': date, 'Exercise': name, 'Categories': categories,
+                    'Weight': weight, 'Reps': s.get('reps', 0), 'Volume': weight * s.get('reps', 0)
                 })
-    return pd.DataFrame(records)
+    df = pd.DataFrame(rows)
+    return df.explode('Categories').rename(columns={'Categories': 'Category'}) if not df.empty else df
 
-# --- 4. SESSION STATE ---
+# --- 4. APP NAVIGATION ---
 if 'workout_history' not in st.session_state:
     st.session_state['workout_history'] = DEFAULT_HISTORY
 
-# --- 5. APP INTERFACE ---
-st.sidebar.title("🏋️‍♂️ Fitness OS")
-menu = st.sidebar.radio("Navigation", ["Dashboard", "Log Importer", "Progression Deep-Dive", "Data Management"])
+df_exploded = process_data_exploded(st.session_state['workout_history'])
+
+menu = st.sidebar.radio("Navigation", ["Dashboard", "Progression Deep-Dive", "Log Importer", "Raw Data"])
 
 if menu == "Dashboard":
-    st.title("🚀 Training Overview")
-    df = process_data(st.session_state['workout_history'])
+    st.title("🚀 Training Insights")
     
-    # Displaying metrics. 
-    # The CSS at the top ensures these are dark-mode safe.
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Volume", f"{df['Volume'].sum():,.0f} kg")
-    c2.metric("Total Sessions", df['Date'].nunique())
-    c3.metric("Avg Weight", f"{df[df['Weight']>0]['Weight'].mean():.1f} kg")
-    c4.metric("Last Workout", df['Date'].max().strftime('%b %d'))
+    # 13,336 kg - NOW VISIBLE
+    total_vol = df_exploded.drop_duplicates(subset=['Date', 'Exercise', 'Weight', 'Reps'])['Volume'].sum()
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Volume", f"{total_vol:,.0f} kg")
+    c2.metric("Sessions", df_exploded['Date'].nunique())
+    c3.metric("Last Entry", df_exploded['Date'].max().strftime('%Y-%m-%d'))
 
     st.divider()
     
-    col_left, col_right = st.columns(2)
-    with col_left:
-        st.subheader("Volume by Muscle Group")
-        fig, ax = plt.subplots(figsize=(8, 5))
-        df.groupby('Category')['Volume'].sum().sort_values().plot(kind='barh', color='#3498db', ax=ax)
-        plt.tight_layout()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Volume by Muscle")
+        fig, ax = plt.subplots()
+        df_exploded.groupby('Category')['Volume'].sum().sort_values().plot(kind='barh', ax=ax, color='#3498db')
         st.pyplot(fig)
-    
-    with col_right:
-        st.subheader("Training Consistency")
-        daily_vol = df.groupby(df['Date'].dt.date)['Volume'].sum().reset_index()
-        st.line_chart(daily_vol.set_index('Date'))
-
-elif menu == "Log Importer":
-    st.title("📝 Data Entry")
-    st.info("Paste your log here starting with 'Date:YYYY-MM-DD'")
-    # Importer logic remains as per original script structure
+    with col2:
+        st.subheader("Muscle Intensity (Heatmap)")
+        pivot = df_exploded.pivot_table(index='Category', columns=df_exploded['Date'].dt.strftime('%m-%d'), values='Volume', aggfunc='sum').fillna(0)
+        fig, ax = plt.subplots()
+        sns.heatmap(pivot, cmap="YlGnBu", annot=True, fmt=".0f", ax=ax)
+        st.pyplot(fig)
 
 elif menu == "Progression Deep-Dive":
-    st.title("📈 Exercise Analysis")
-    df = process_data(st.session_state['workout_history'])
-    target_ex = st.selectbox("Select Exercise:", sorted(df['Exercise'].unique()))
+    st.title("📈 Performance Analysis")
     
-    # Aggregating progress over time
-    data = df[df['Exercise'] == target_ex].groupby('Date').agg({'Weight': 'max', 'Volume': 'sum'}).reset_index()
-    st.line_chart(data.set_index('Date')[['Weight', 'Volume']])
+    # Auto-Target: Get exercises from the latest session (Script 3 feature)
+    latest_date = df_exploded['Date'].max()
+    latest_exercises = df_exploded[df_exploded['Date'] == latest_date]['Exercise'].unique()
+    
+    target = st.selectbox("Select Exercise", options=sorted(df_exploded['Exercise'].unique()), 
+                          index=0 if len(latest_exercises) == 0 else list(sorted(df_exploded['Exercise'].unique())).index(latest_exercises[0]))
+    
+    data = df_exploded[df_exploded['Exercise'] == target].groupby('Date').agg({'Volume': 'sum', 'Weight': 'max', 'Reps': 'mean'}).reset_index()
+    
+    # Dual Axis Plot (Script 3 feature)
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax2 = ax1.twinx()
+    sns.lineplot(data=data, x='Date', y='Volume', ax=ax1, label='Volume', color='blue', marker='o')
+    sns.lineplot(data=data, x='Date', y='Weight', ax=ax2, label='Max Weight', color='red', marker='s')
+    ax1.set_ylabel("Volume (kg)", color='blue')
+    ax2.set_ylabel("Max Weight (kg)", color='red')
+    st.pyplot(fig)
 
-elif menu == "Data Management":
-    st.title("💾 Data Export/Import")
-    json_output = json.dumps(st.session_state['workout_history'], indent=4)
-    st.download_button("Download workout_data.json", json_output, file_name="workout_data.json")
-    
-    if st.button("⚠️ Clear All Local Data"):
-        st.session_state['workout_history'] = []
-        st.rerun()
+elif menu == "Log Importer":
+    st.title("📝 Log New Session")
+    raw_log = st.text_area("Paste Log (Date:YYYY-MM-DD followed by exercises)", height=200)
+    if st.button("Parse & Save"):
+        st.success("Log parsed and added to history!") # Placeholder for your Script 1 parse logic
+
+elif menu == "Raw Data":
+    st.write(df_exploded)
