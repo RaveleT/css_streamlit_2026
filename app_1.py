@@ -863,72 +863,106 @@ elif menu == "STEM Data Explorer":
     # (Existing DataFrame code goes here)
 
 elif menu == "Fitness Tracker":
-    st.title("🏋️‍♂️ Fitness Analytics")
-    
-    # --- Data Loading ---
-    uploaded_file = st.sidebar.file_uploader("Upload workout_data.json", type=['json'])
-    if uploaded_file:
-        data = json.load(uploaded_file)
-    else:
-        # This will now use your real 2025/2026 data
-        data = DEFAULT_WORKOUT_JSON
-    
-    df = process_workout_data(data)
+    st.title("🏋️‍♂️ Fitness Analytics & Log Importer")
 
-    # --- Sidebar Filters ---
-    st.sidebar.divider()
-    st.sidebar.subheader("Filter Dashboard")
+    # --- 1. THE LOG PARSER (Your Jupyter Logic) ---
+    MUSCLE_LOOKUP = {
+        "Barbell Bench Press": "Chest / Triceps", "Push-Ups": "Chest / Shoulders",
+        "Dumbbell Overhead Press": "Shoulders", "Dynamique Crunch": "Core",
+        "Dumbbell Triceps Kickbacks": "Triceps", "Ab Wheel Rollout": "Core / Abs",
+        "Kettlebell Goblet Squat": "Core / Stabilizer", "Dumbbell Lateral Raise": "Shoulders (Lateral)",
+        "Kettlebell Overhead Triceps Extension": "Triceps", "Rotating Biceps Curl": "Arms/Biceps",
+        "Barbell RDL": "Hamstrings / Back", "Kettlebell Swings": "Full Body",
+        "Bodyweight Lunges": "Quads / Glutes", "Kettlebell Forward Lunges": "Quads / Glutes",
+        "Cycling": "Hamstrings / Quads", "Plank": "Core / Stabilizer",
+        "Barbell Row": "Back / Biceps", "Dumbbell Single-Arm Row-Right": "Back / Biceps",
+        "Kettlebell High Pull": "Shoulders / Back", "Barbell Bicep Curl": "Biceps",
+        "Dumbbell Shrugs": "Traps", "Barbell Thrusters": "Quads / Shoulders",
+        "Dumbbell Step-Ups": "Quads / Glutes", "Kettlebell Halos": "Shoulders / Core",
+        "Dumbbell Squat Jumps": "Quads / Calves", "Kettlebell Side Swings": "Core / Shoulders"
+    }
+
+    def get_muscle_group(ex_name):
+        ex_name_clean = ex_name.strip().lower()
+        for formal_name, muscle in MUSCLE_LOOKUP.items():
+            if ex_name_clean in formal_name.lower(): return muscle
+        return "Other"
+
+    def parse_workout_log(log_content):
+        lines = log_content.strip().split('\n')
+        date_line = next((line for line in lines if line.startswith('Date:')), None)
+        date_str = date_line.split(':')[1].strip() if date_line else "N/A"
+        current_workout = {'date': date_str, 'exercises': []}
+        current_exercise = None
+        SET_REGEX = re.compile(r'(\d+)\s*->\s*(\d+)')
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('Date:'): continue
+            set_match = SET_REGEX.match(line)
+            if set_match:
+                if current_exercise:
+                    current_exercise['sets'].append({'set': int(set_match.group(1)), 'reps': int(set_match.group(2))})
+            else:
+                if current_exercise: current_workout['exercises'].append(current_exercise)
+                name_match = re.match(r'(.+?)(?:\((.+?)\))?$', line)
+                if name_match:
+                    name = name_match.group(1).strip()
+                    weight_raw = name_match.group(2)
+                    weight = weight_raw.replace(',', '.').replace('Kg', '').strip() if weight_raw else None
+                    current_exercise = {'name': name, 'sets': [], 'weight': weight, 'muscle': get_muscle_group(name)}
+        if current_exercise: current_workout['exercises'].append(current_exercise)
+        return current_workout
+
+    # --- 2. LOG ENTRY UI ---
+    with st.expander("📝 Paste New Workout Log"):
+        raw_log = st.text_area("Paste your log here (Format: Date:YYYY-MM-DD followed by exercises)", height=200)
+        if st.button("Process Log"):
+            if raw_log:
+                new_data = parse_workout_log(raw_log)
+                # Check if date already exists in DEFAULT_WORKOUT_JSON
+                exists = False
+                for i, w in enumerate(DEFAULT_WORKOUT_JSON):
+                    if w['date'] == new_data['date']:
+                        DEFAULT_WORKOUT_JSON[i] = new_data
+                        exists = True
+                if not exists:
+                    DEFAULT_WORKOUT_JSON.append(new_data)
+                st.success(f"Added workout for {new_data['date']}!")
+            else:
+                st.warning("Please paste a log first.")
+
+    # --- 3. ANALYTICS ---
+    df = process_workout_data(DEFAULT_WORKOUT_JSON)
     
-    # This filter ensures you can toggle between 2025 and 2026
-    available_years = sorted(df['Date'].dt.year.unique(), reverse=True)
-    selected_year = st.sidebar.selectbox("Select Year", available_years)
-    
-    # Filter the dataframe for the rest of the page
+    # Sidebar Filters
+    st.sidebar.subheader("Dashboard Settings")
+    selected_year = st.sidebar.selectbox("Year", sorted(df['Date'].dt.year.unique(), reverse=True))
     df_filtered = df[df['Date'].dt.year == selected_year]
 
-    # --- Top Level Metrics ---
-    m1, m2, m3 = st.columns(3)
-    m1.metric(f"Total Volume ({selected_year})", f"{df_filtered['Volume'].sum():,.0f} kg")
-    m2.metric("Exercises Logged", len(df_filtered))
-    m3.metric("Training Sessions", df_filtered['Date'].nunique())
+    # Metrics
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Volume", f"{df_filtered['Volume'].sum():,.0f} kg")
+    c2.metric("Sessions", df_filtered['Date'].nunique())
+    c3.metric("Top Muscle", df_filtered.groupby('Category')['Volume'].sum().idxmax())
 
     st.divider()
-
-    # --- Visualizations ---
-    col_left, col_right = st.columns(2)
     
-    with col_left:
-        st.subheader("Volume by Muscle Group")
-        # Horizontal bar chart showing where you're putting in the work
-        fig, ax = plt.subplots()
-        df_filtered.groupby('Category')['Volume'].sum().sort_values().plot(kind='barh', ax=ax, color='#1f77b4')
-        plt.xlabel("Total Weight (kg)")
-        st.pyplot(fig)
+    # Volume Trend Line Chart
+    st.subheader("Progress Over Time")
+    st.line_chart(df.groupby('Date')['Volume'].sum())
 
-    with col_right:
-        st.subheader("Daily Training Load")
-        # Heatmap using specific dates to keep 2025/2026 separate
-        pivot = df_filtered.pivot_table(
-            index='Category', 
-            columns=df_filtered['Date'].dt.strftime('%m-%d'), 
-            values='Volume', 
-            aggfunc='sum'
-        ).fillna(0)
-        
-        fig2, ax2 = plt.subplots()
-        sns.heatmap(pivot, annot=False, cmap="YlGnBu", ax=ax2)
-        st.pyplot(fig2)
-
-    # --- Progress Over Time (The "January View") ---
-    st.subheader("All-Time Volume Trend")
-    # This chart is not filtered by year, so you can see the jump from 2025 to 2026
-    trend_data = df.groupby('Date')['Volume'].sum().reset_index()
-    st.line_chart(trend_data.set_index('Date'))
+    # Heatmap
+    st.subheader("Muscle Group Distribution")
+    pivot = df_filtered.pivot_table(index='Category', columns=df_filtered['Date'].dt.strftime('%m-%d'), values='Volume', aggfunc='sum').fillna(0)
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.heatmap(pivot, cmap="YlGnBu", annot=False, ax=ax)
+    st.pyplot(fig)
 
 elif menu == "Contact":
     st.header("Contact")
     st.write("Email: ravele95@gmail.com")
     st.write("Contact No: 060 924 9459")
+
 
 
 
