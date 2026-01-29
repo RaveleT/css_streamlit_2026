@@ -1,973 +1,159 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import json
-import seaborn as sns
-import matplotlib.pyplot as plt
-import warnings
+import altair as alt
+import re
+from datetime import datetime
 
-null = None
+# --- 1. CONFIGURATION & LOOKUP ---
+null = None  # Handle JSON nulls if pasted directly
 
-# --- 1. CONFIGURATION & STYLE ---
-st.set_page_config(page_title="Researcher Portfolio & Fitness", layout="wide")
-warnings.filterwarnings('ignore')
-sns.set_theme(style="whitegrid")
+MUSCLE_LOOKUP = {
+    "Barbell Bench Press": "Chest / Triceps", "Push-Ups": "Chest / Shoulders",
+    "Dumbbell Overhead Press": "Shoulders", "Dynamique Crunch": "Core",
+    "Dumbbell Triceps Kickbacks": "Triceps", "Ab Wheel Rollout": "Core / Abs",
+    "Kettlebell Goblet Squat": "Core / Stabilizer", "Dumbbell Lateral Raise": "Shoulders (Lateral)",
+    "Kettlebell Overhead Triceps Extension": "Triceps", "Rotating Biceps Curl": "Arms/Biceps",
+    "Barbell RDL": "Hamstrings / Back", "Kettlebell Swings": "Full Body",
+    "Bodyweight Lunges": "Quads / Glutes", "Kettlebell Forward Lunges": "Quads / Glutes",
+    "Cycling": "Hamstrings / Quads", "Plank": "Core / Stabilizer",
+    "Barbell Row": "Back / Biceps", "Dumbbell Single-Arm Row-Right": "Back / Biceps",
+    "Kettlebell High Pull": "Shoulders / Back", "Barbell Bicep Curl": "Biceps",
+    "Dumbbell Shrugs": "Traps", "Barbell Thrusters": "Quads / Shoulders",
+    "Dumbbell Step-Ups": "Quads / Glutes", "Kettlebell Halos": "Shoulders / Core",
+    "Dumbbell Squat Jumps": "Quads / Calves", "Kettlebell Side Swings": "Core / Shoulders"
+}
 
-# --- 2. DEFAULT FITNESS DATA (Hardcoded so no upload is required) ---
-DEFAULT_WORKOUT_JSON = [
-    {
-        "date": "2025-12-15",
-        "exercises": [
-            {
-                "name": "Barbell Bench Press",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "30"
-            },
-            {
-                "name": "Push Ups",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Dumbbell Overhead Press",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 1
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "20"
-            },
-            {
-                "name": "Dynamique Crunch",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 20
-                    },
-                    {
-                        "set": 3,
-                        "reps": 20
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Dumbbell Triceps Kickbacks",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Ab Wheel Rollout",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 5
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Kettlebell Goblet Squat",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Dumbbell Lateral Raise",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 12
-                    },
-                    {
-                        "set": 2,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Kettlebell Overhead Triceps Extension",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 12
-                    },
-                    {
-                        "set": 2,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Rotating Biceps Curl",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "9.5"
-            }
-        ]
-    },
-    {
-        "date": "2025-12-16",
-        "exercises": [
-            {
-                "name": "Rotating Biceps Curl",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "9.5"
-            }
-        ]
-    },
-    {
-        "date": "2025-12-22",
-        "exercises": [
-            {
-                "name": "Dynamique Crunch",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 20
-                    },
-                    {
-                        "set": 3,
-                        "reps": 20
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Dumbbell Triceps Kickbacks",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Ab Wheel Rollout",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Kettlebell Goblet Squat",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Dumbbell Lateral Raise",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 12
-                    },
-                    {
-                        "set": 2,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    },
-                    {
-                        "set": 4,
-                        "reps": 12
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Kettlebell Overhead Triceps Extension",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 12
-                    },
-                    {
-                        "set": 2,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    },
-                    {
-                        "set": 4,
-                        "reps": 12
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Rotating Biceps Curl",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 20
-                    },
-                    {
-                        "set": 3,
-                        "reps": 20
-                    }
-                ],
-                "weight": "9.5"
-            }
-        ]
-    },
-    {
-        "date": "2025-12-23",
-        "exercises": [
-            {
-                "name": "Kettlebell Goblet Squat",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Barbell RDL",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 16
-                    },
-                    {
-                        "set": 3,
-                        "reps": 16
-                    }
-                ],
-                "weight": "30"
-            },
-            {
-                "name": "Kettlebell Swings",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 20
-                    },
-                    {
-                        "set": 2,
-                        "reps": 20
-                    },
-                    {
-                        "set": 3,
-                        "reps": 20
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Bodyweight Lunges",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 17
-                    },
-                    {
-                        "set": 3,
-                        "reps": 18
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Kettlebell Forward Lunges",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 15
-                    },
-                    {
-                        "set": 2,
-                        "reps": 14
-                    },
-                    {
-                        "set": 3,
-                        "reps": 16
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Dumbbell Lateral Raise",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 12
-                    },
-                    {
-                        "set": 2,
-                        "reps": 12
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    },
-                    {
-                        "set": 4,
-                        "reps": 12
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Cycling",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 70
-                    },
-                    {
-                        "set": 2,
-                        "reps": 75
-                    },
-                    {
-                        "set": 3,
-                        "reps": 80
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Plank",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 60
-                    },
-                    {
-                        "set": 2,
-                        "reps": 60
-                    },
-                    {
-                        "set": 3,
-                        "reps": 60
-                    }
-                ],
-                "weight": null
-            }
-        ]
-    },
-    {
-        "date": "2026-01-22",
-        "exercises": [
-            {
-                "name": "Barbell Row",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "30"
-            },
-            {
-                "name": "Dumbbell  Single-Arm Row-Right",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Dumbbell  Single-Arm Row-Left",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Kettlebell High Pull",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    }
-                ],
-                "weight": "10"
-            },
-            {
-                "name": "Ab Wheel Rollout",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 12
-                    }
-                ],
-                "weight": null
-            },
-            {
-                "name": "Barbell Bicep Curl",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 4
-                    },
-                    {
-                        "set": 3,
-                        "reps": 5
-                    }
-                ],
-                "weight": "9.5"
-            },
-            {
-                "name": "Dumbbell Shrug",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "9.5"
-            }
-        ]
-    },
-    {
-        "date": "2026-01-23",
-        "exercises": [
-            {
-                "name": "Barbell Thrusters",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 4
-                    },
-                    {
-                        "set": 2,
-                        "reps": 5
-                    },
-                    {
-                        "set": 3,
-                        "reps": 4
-                    }
-                ],
-                "weight": "30",
-                "muscle": "Quads / Shoulders"
-            },
-            {
-                "name": "Dumbbell Step-Ups",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "29.5",
-                "muscle": "Quads / Glutes"
-            },
-            {
-                "name": "Kettlebell Halos",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": "10",
-                "muscle": "Shoulders / Core"
-            },
-            {
-                "name": "Push-Ups",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 16
-                    },
-                    {
-                        "set": 2,
-                        "reps": 16
-                    },
-                    {
-                        "set": 3,
-                        "reps": 7
-                    }
-                ],
-                "weight": null,
-                "muscle": "Chest / Shoulders"
-            },
-            {
-                "name": "Dumbbell Squat Jumps",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 15
-                    },
-                    {
-                        "set": 3,
-                        "reps": 15
-                    }
-                ],
-                "weight": "10",
-                "muscle": "Quads / Calves"
-            },
-            {
-                "name": "Kettlebell Side Swings",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 10
-                    },
-                    {
-                        "set": 2,
-                        "reps": 10
-                    },
-                    {
-                        "set": 3,
-                        "reps": 10
-                    }
-                ],
-                "weight": null,
-                "muscle": "Core / Shoulders"
-            },
-            {
-                "name": "Plank",
-                "sets": [
-                    {
-                        "set": 1,
-                        "reps": 60
-                    },
-                    {
-                        "set": 2,
-                        "reps": 60
-                    },
-                    {
-                        "set": 3,
-                        "reps": 60
-                    }
-                ],
-                "weight": null,
-                "muscle": "Core / Stabilizer"
-            }
-        ]
-    }
-]
+# --- 2. LOGIC FUNCTIONS ---
 
-# --- 3. HELPER FUNCTIONS ---
+def get_muscle_group(ex_name):
+    ex_name_clean = ex_name.strip().lower()
+    for formal_name, muscle in MUSCLE_LOOKUP.items():
+        if ex_name_clean in formal_name.lower():
+            return muscle
+    return "Other"
 
-def categorize_fallback(name):
-    name = name.lower()
-    mapping = {
-        'Chest': ['bench', 'push-up', 'pec'],
-        'Back': ['row', 'pull', 'lat', 'shrug'],
-        'Shoulders': ['shoulder', 'press', 'lateral'],
-        'Legs': ['squat', 'leg', 'lunge', 'deadlift'],
-        'Core': ['ab', 'crunch', 'plank']
-    }
-    for category, keywords in mapping.items():
-        if any(word in name for word in keywords): return category
-    return 'Other'
+def parse_workout_log(log_content):
+    lines = log_content.strip().split('\n')
+    date_line = next((line for line in lines if line.startswith('Date:')), None)
+    date_str = date_line.split(':')[1].strip() if date_line else datetime.now().strftime("%Y-%m-%d")
+    
+    current_workout = {'date': date_str, 'exercises': []}
+    current_exercise = None
+    SET_REGEX = re.compile(r'(\d+)\s*->\s*(\d+)')
+    
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('Date:'): continue
+        set_match = SET_REGEX.match(line)
+        if set_match:
+            if current_exercise:
+                current_exercise['sets'].append({'set': int(set_match.group(1)), 'reps': int(set_match.group(2))})
+        else:
+            if current_exercise: current_workout['exercises'].append(current_exercise)
+            name_match = re.match(r'(.+?)(?:\((.+?)\))?$', line)
+            if name_match:
+                name = name_match.group(1).strip()
+                weight_raw = name_match.group(2)
+                weight = weight_raw.replace(',', '.').lower().replace('kg', '').strip() if weight_raw else None
+                current_exercise = {'name': name, 'sets': [], 'weight': weight, 'muscle': get_muscle_group(name)}
+    if current_exercise: current_workout['exercises'].append(current_exercise)
+    return current_workout
 
-def clean_weight_robust(weight_val):
-    """Safely converts weight strings/objects to float."""
-    if weight_val is None:
-        return 0.0
-    try:
-        # Convert to string and handle European decimal commas
-        w_str = str(weight_val).replace(',', '.').strip()
-        
-        # If it's a range (e.g., "10-12"), take the average or the first number
-        if '-' in w_str:
-            parts = w_str.split('-')
-            return (float(parts[0]) + float(parts[1])) / 2
-            
-        return float(w_str)
-    except (ValueError, TypeError):
-        return 0.0
-
-def process_workout_data(raw_data):
-    rows = []
-    for workout in raw_data:
-        date = workout.get('date')
-        for ex in workout.get('exercises', []):
+def process_to_dataframe(log_data):
+    records = []
+    for session in log_data:
+        date = pd.to_datetime(session.get('date'))
+        for ex in session.get('exercises', []):
             name = ex.get('name')
-            cat = ex.get('muscle') if ex.get('muscle') else categorize_fallback(name)
-            
-            # Use the robust cleaner here to prevent the ValueError
-            weight = clean_weight_robust(ex.get('weight'))
+            cat = ex.get('muscle', 'Other')
+            # Robust weight cleaning
+            w_raw = ex.get('weight')
+            try:
+                weight = float(str(w_raw).replace(',', '.')) if w_raw else 0.0
+            except: weight = 0.0
             
             for s in ex.get('sets', []):
                 reps = s.get('reps', 0)
-                rows.append({
-                    'Date': pd.to_datetime(date),
-                    'Exercise': name,
-                    'Category': cat,
-                    'Volume': reps * weight,
-                    'Weight': weight,
-                    'Reps': reps
+                records.append({
+                    'Date': date, 'Exercise': name, 'Category': cat,
+                    'Weight': weight, 'Reps': reps, 'SetVolume': weight * reps
                 })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(records)
 
-# --- 4. SIDEBAR NAVIGATION ---
-st.sidebar.title("Navigation")
-menu = st.sidebar.radio("Go to:", ["Researcher Profile", "STEM Data Explorer", "Fitness Tracker", "Contact"])
+# --- 3. STREAMLIT UI ---
 
-# --- 5. MAIN LOGIC ---
+st.set_page_config(page_title="Fitness OS", layout="wide")
 
-if menu == "Researcher Profile":
-    st.title("Researcher Profile")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.image("https://cdn.pixabay.com/photo/2015/04/23/22/00/tree-736885_1280.jpg", caption="Mr. Thendo Ravele")
-    with col2:
-        st.write("**Field:** Mathematics & Statistics")
-        st.write("**Institution:** University of Venda")
-        st.write("**Bio:** Specializing in data science, data-driven mathematical models & data storytelling.")
+# Sidebar - App State
+if 'data' not in st.session_state:
+    st.session_state['data'] = []
 
-elif menu == "STEM Data Explorer":
-    st.title("STEM Data Explorer")
-    st.write("Visualizing Physics and Astronomy experimental data.")
-    # (Existing DataFrame code goes here)
+st.sidebar.title("Settings")
+uploaded_file = st.sidebar.file_uploader("Upload existing JSON", type=['json'])
+if uploaded_file:
+    st.session_state['data'] = json.load(uploaded_file)
 
-elif menu == "Fitness Tracker":
-    st.title("🏋️‍♂️ Fitness Analytics & Log Importer")
+# --- TAB 1: LOG IMPORTER ---
+tab1, tab2 = st.tabs(["📝 Log Importer", "📈 Analytics"])
 
-    # --- 1. THE LOG PARSER (Your Jupyter Logic) ---
-    MUSCLE_LOOKUP = {
-        "Barbell Bench Press": "Chest / Triceps", "Push-Ups": "Chest / Shoulders",
-        "Dumbbell Overhead Press": "Shoulders", "Dynamique Crunch": "Core",
-        "Dumbbell Triceps Kickbacks": "Triceps", "Ab Wheel Rollout": "Core / Abs",
-        "Kettlebell Goblet Squat": "Core / Stabilizer", "Dumbbell Lateral Raise": "Shoulders (Lateral)",
-        "Kettlebell Overhead Triceps Extension": "Triceps", "Rotating Biceps Curl": "Arms/Biceps",
-        "Barbell RDL": "Hamstrings / Back", "Kettlebell Swings": "Full Body",
-        "Bodyweight Lunges": "Quads / Glutes", "Kettlebell Forward Lunges": "Quads / Glutes",
-        "Cycling": "Hamstrings / Quads", "Plank": "Core / Stabilizer",
-        "Barbell Row": "Back / Biceps", "Dumbbell Single-Arm Row-Right": "Back / Biceps",
-        "Kettlebell High Pull": "Shoulders / Back", "Barbell Bicep Curl": "Biceps",
-        "Dumbbell Shrugs": "Traps", "Barbell Thrusters": "Quads / Shoulders",
-        "Dumbbell Step-Ups": "Quads / Glutes", "Kettlebell Halos": "Shoulders / Core",
-        "Dumbbell Squat Jumps": "Quads / Calves", "Kettlebell Side Swings": "Core / Shoulders"
-    }
-
-    def get_muscle_group(ex_name):
-        ex_name_clean = ex_name.strip().lower()
-        for formal_name, muscle in MUSCLE_LOOKUP.items():
-            if ex_name_clean in formal_name.lower(): return muscle
-        return "Other"
-
-    def parse_workout_log(log_content):
-        lines = log_content.strip().split('\n')
-        date_line = next((line for line in lines if line.startswith('Date:')), None)
-        date_str = date_line.split(':')[1].strip() if date_line else "N/A"
-        current_workout = {'date': date_str, 'exercises': []}
-        current_exercise = None
-        SET_REGEX = re.compile(r'(\d+)\s*->\s*(\d+)')
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('Date:'): continue
-            set_match = SET_REGEX.match(line)
-            if set_match:
-                if current_exercise:
-                    current_exercise['sets'].append({'set': int(set_match.group(1)), 'reps': int(set_match.group(2))})
-            else:
-                if current_exercise: current_workout['exercises'].append(current_exercise)
-                name_match = re.match(r'(.+?)(?:\((.+?)\))?$', line)
-                if name_match:
-                    name = name_match.group(1).strip()
-                    weight_raw = name_match.group(2)
-                    weight = weight_raw.replace(',', '.').replace('Kg', '').strip() if weight_raw else None
-                    current_exercise = {'name': name, 'sets': [], 'weight': weight, 'muscle': get_muscle_group(name)}
-        if current_exercise: current_workout['exercises'].append(current_exercise)
-        return current_workout
-
-    # --- 2. LOG ENTRY UI ---
-    with st.expander("📝 Paste New Workout Log"):
-        raw_log = st.text_area("Paste your log here (Format: Date:YYYY-MM-DD followed by exercises)", height=200)
-        if st.button("Process Log"):
-            if raw_log:
-                new_data = parse_workout_log(raw_log)
-                # Check if date already exists in DEFAULT_WORKOUT_JSON
-                exists = False
-                for i, w in enumerate(DEFAULT_WORKOUT_JSON):
-                    if w['date'] == new_data['date']:
-                        DEFAULT_WORKOUT_JSON[i] = new_data
-                        exists = True
-                if not exists:
-                    DEFAULT_WORKOUT_JSON.append(new_data)
-                st.success(f"Added workout for {new_data['date']}!")
-            else:
-                st.warning("Please paste a log first.")
-
-    # --- 3. ANALYTICS ---
-    df = process_workout_data(DEFAULT_WORKOUT_JSON)
+with tab1:
+    st.subheader("Import Workout from Text")
     
-    # Sidebar Filters
-    st.sidebar.subheader("Dashboard Settings")
-    selected_year = st.sidebar.selectbox("Year", sorted(df['Date'].dt.year.unique(), reverse=True))
-    df_filtered = df[df['Date'].dt.year == selected_year]
-
-    # Metrics
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Volume", f"{df_filtered['Volume'].sum():,.0f} kg")
-    c2.metric("Sessions", df_filtered['Date'].nunique())
-    c3.metric("Top Muscle", df_filtered.groupby('Category')['Volume'].sum().idxmax())
-
-    st.divider()
+    col_in, col_pre = st.columns([1, 1])
     
-    # Volume Trend Line Chart
-    st.subheader("Progress Over Time")
-    st.line_chart(df.groupby('Date')['Volume'].sum())
+    with col_in:
+        example_format = "Date:2026-01-23\n\nBarbell Thrusters(30kg)\n1->5\n2->5\n\nPush-Ups\n1->20"
+        raw_log = st.text_area("Paste Raw Log Here:", value=example_format, height=300)
+        if st.button("Add to Database"):
+            parsed = parse_workout_log(raw_log)
+            # Remove existing entry for same date to prevent duplicates
+            st.session_state['data'] = [w for w in st.session_state['data'] if w['date'] != parsed['date']]
+            st.session_state['data'].append(parsed)
+            st.success(f"Successfully processed workout for {parsed['date']}!")
 
-    # Heatmap
-    st.subheader("Muscle Group Distribution")
-    pivot = df_filtered.pivot_table(index='Category', columns=df_filtered['Date'].dt.strftime('%m-%d'), values='Volume', aggfunc='sum').fillna(0)
-    fig, ax = plt.subplots(figsize=(10, 4))
-    sns.heatmap(pivot, cmap="YlGnBu", annot=False, ax=ax)
-    st.pyplot(fig)
+    with col_pre:
+        st.info("**Format Instructions:**\n1. Start with `Date:YYYY-MM-DD`\n2. Exercise Name (Optional Weight in Brackets)\n3. SetNumber -> Reps")
+        st.json(st.session_state['data'][-1] if st.session_state['data'] else {})
 
-elif menu == "Contact":
-    st.header("Contact")
-    st.write("Email: ravele95@gmail.com")
-    st.write("Contact No: 060 924 9459")
+# --- TAB 2: ANALYTICS ---
+with tab2:
+    if not st.session_state['data']:
+        st.warning("No data found. Upload a JSON or paste a log in the Importer tab.")
+    else:
+        df = process_to_dataframe(st.session_state['data'])
+        
+        # Selectors
+        exercises = sorted(df['Exercise'].unique())
+        target_ex = st.selectbox("Select Exercise for Progression:", exercises, index=exercises.index('Barbell RDL') if 'Barbell RDL' in exercises else 0)
 
+        # CHART 1: Muscle Distribution
+        st.subheader("Muscle Group Volume")
+        muscle_chart = alt.Chart(df).mark_bar().encode(
+            x=alt.X('sum(SetVolume):Q', title='Total Volume (kg)'),
+            y=alt.Y('Category:N', sort='-x'),
+            color='Category:N',
+            tooltip=['Category', 'sum(SetVolume)']
+        ).properties(height=300)
+        st.altair_chart(muscle_chart, use_container_width=True)
 
-
-
-
-
-
-
-
+        # CHART 2: Exercise Progression
+        st.subheader(f"Progression: {target_ex}")
+        prog_data = df[df['Exercise'] == target_ex].groupby('Date')['SetVolume'].sum().reset_index()
+        
+        prog_chart = alt.Chart(prog_data).mark_line(point=True).encode(
+            x='Date:T',
+            y=alt.Y('SetVolume:Q', title='Daily Volume (kg)'),
+            tooltip=['Date', 'SetVolume']
+        ).properties(height=300)
+        st.altair_chart(prog_chart, use_container_width=True)
+        
+        # Download data
+        st.sidebar.divider()
+        json_string = json.dumps(st.session_state['data'], indent=4)
+        st.sidebar.download_button(
+            label="Download Data as JSON",
+            data=json_string,
+            file_name="workout_data.json",
+            mime="application/json"
+        )
