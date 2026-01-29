@@ -1,12 +1,26 @@
 import streamlit as st
 import pandas as pd
 import json
-import altair as alt
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import seaborn as sns
 import re
 from datetime import datetime
 
-# --- 1. CONFIGURATION & LOOKUP ---
-null = None  # Handle JSON nulls if pasted directly
+# --- 1. SETTINGS & STYLING ---
+st.set_page_config(page_title="Fitness OS 2026", layout="wide", page_icon="🏋️‍♂️")
+
+# Injecting some custom CSS for a cleaner look
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    div.stButton > button:first-child { background-color: #007bff; color: white; border-radius: 5px; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. CONSTANTS & LOOKUPS ---
+null = None # Prevents crash if JSON null is pasted into code area
 
 MUSCLE_LOOKUP = {
     "Barbell Bench Press": "Chest / Triceps", "Push-Ups": "Chest / Shoulders",
@@ -24,13 +38,19 @@ MUSCLE_LOOKUP = {
     "Dumbbell Squat Jumps": "Quads / Calves", "Kettlebell Side Swings": "Core / Shoulders"
 }
 
-# --- 2. LOGIC FUNCTIONS ---
+# --- 3. CORE LOGIC FUNCTIONS ---
+
+def clean_weight(val):
+    if val is None: return 0.0
+    try:
+        clean = re.sub(r'[^0-9.]', '', str(val).replace(',', '.'))
+        return float(clean) if clean else 0.0
+    except ValueError: return 0.0
 
 def get_muscle_group(ex_name):
     ex_name_clean = ex_name.strip().lower()
     for formal_name, muscle in MUSCLE_LOOKUP.items():
-        if ex_name_clean in formal_name.lower():
-            return muscle
+        if ex_name_clean in formal_name.lower(): return muscle
     return "Other"
 
 def parse_workout_log(log_content):
@@ -55,105 +75,147 @@ def parse_workout_log(log_content):
             if name_match:
                 name = name_match.group(1).strip()
                 weight_raw = name_match.group(2)
-                weight = weight_raw.replace(',', '.').lower().replace('kg', '').strip() if weight_raw else None
-                current_exercise = {'name': name, 'sets': [], 'weight': weight, 'muscle': get_muscle_group(name)}
+                current_exercise = {
+                    'name': name, 'sets': [], 
+                    'weight': weight_raw, 
+                    'muscle': get_muscle_group(name)
+                }
     if current_exercise: current_workout['exercises'].append(current_exercise)
     return current_workout
 
-def process_to_dataframe(log_data):
+def process_data(json_data):
     records = []
-    for session in log_data:
-        date = pd.to_datetime(session.get('date'))
+    for session in json_data:
+        s_date = pd.to_datetime(session.get('date'))
         for ex in session.get('exercises', []):
             name = ex.get('name')
             cat = ex.get('muscle', 'Other')
-            # Robust weight cleaning
-            w_raw = ex.get('weight')
-            try:
-                weight = float(str(w_raw).replace(',', '.')) if w_raw else 0.0
-            except: weight = 0.0
-            
+            weight = clean_weight(ex.get('weight'))
             for s in ex.get('sets', []):
                 reps = s.get('reps', 0)
                 records.append({
-                    'Date': date, 'Exercise': name, 'Category': cat,
-                    'Weight': weight, 'Reps': reps, 'SetVolume': weight * reps
+                    'Date': s_date, 'Exercise': name, 'Category': cat,
+                    'Weight': weight, 'Reps': reps, 'Volume': weight * reps
                 })
     return pd.DataFrame(records)
 
-# --- 3. STREAMLIT UI ---
+# --- 4. SESSION STATE ---
+if 'workout_history' not in st.session_state:
+    st.session_state['workout_history'] = []
 
-st.set_page_config(page_title="Fitness OS", layout="wide")
+# --- 5. SIDEBAR NAVIGATION ---
+st.sidebar.image("https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d473530c2731ad6f9273d.svg", width=50)
+st.sidebar.title("Fitness OS")
+menu = st.sidebar.radio("Navigation", ["Dashboard", "Log Importer", "Progression Deep-Dive", "Data Management"])
 
-# Sidebar - App State
-if 'data' not in st.session_state:
-    st.session_state['data'] = []
+# --- 6. MENUS ---
 
-st.sidebar.title("Settings")
-uploaded_file = st.sidebar.file_uploader("Upload existing JSON", type=['json'])
-if uploaded_file:
-    st.session_state['data'] = json.load(uploaded_file)
-
-# --- TAB 1: LOG IMPORTER ---
-tab1, tab2 = st.tabs(["📝 Log Importer", "📈 Analytics"])
-
-with tab1:
-    st.subheader("Import Workout from Text")
-    
-    col_in, col_pre = st.columns([1, 1])
-    
-    with col_in:
-        example_format = "Date:2026-01-23\n\nBarbell Thrusters(30kg)\n1->5\n2->5\n\nPush-Ups\n1->20"
-        raw_log = st.text_area("Paste Raw Log Here:", value=example_format, height=300)
-        if st.button("Add to Database"):
-            parsed = parse_workout_log(raw_log)
-            # Remove existing entry for same date to prevent duplicates
-            st.session_state['data'] = [w for w in st.session_state['data'] if w['date'] != parsed['date']]
-            st.session_state['data'].append(parsed)
-            st.success(f"Successfully processed workout for {parsed['date']}!")
-
-    with col_pre:
-        st.info("**Format Instructions:**\n1. Start with `Date:YYYY-MM-DD`\n2. Exercise Name (Optional Weight in Brackets)\n3. SetNumber -> Reps")
-        st.json(st.session_state['data'][-1] if st.session_state['data'] else {})
-
-# --- TAB 2: ANALYTICS ---
-with tab2:
-    if not st.session_state['data']:
-        st.warning("No data found. Upload a JSON or paste a log in the Importer tab.")
+# A. DASHBOARD
+if menu == "Dashboard":
+    st.title("🚀 Training Overview")
+    if not st.session_state['workout_history']:
+        st.info("No data found. Please go to 'Log Importer' to add your first workout!")
     else:
-        df = process_to_dataframe(st.session_state['data'])
+        df = process_data(st.session_state['workout_history'])
         
-        # Selectors
-        exercises = sorted(df['Exercise'].unique())
-        target_ex = st.selectbox("Select Exercise for Progression:", exercises, index=exercises.index('Barbell RDL') if 'Barbell RDL' in exercises else 0)
+        # Top Metrics
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Volume", f"{df['Volume'].sum():,.0f} kg")
+        c2.metric("Sessions", df['Date'].nunique())
+        c3.metric("Avg Intensity", f"{df['Weight'].mean():.1f} kg")
+        c4.metric("Last Workout", df['Date'].max().strftime('%b %d'))
 
-        # CHART 1: Muscle Distribution
-        st.subheader("Muscle Group Volume")
-        muscle_chart = alt.Chart(df).mark_bar().encode(
-            x=alt.X('sum(SetVolume):Q', title='Total Volume (kg)'),
-            y=alt.Y('Category:N', sort='-x'),
-            color='Category:N',
-            tooltip=['Category', 'sum(SetVolume)']
-        ).properties(height=300)
-        st.altair_chart(muscle_chart, use_container_width=True)
+        st.divider()
+        
+        # Volume Heatmap / Distribution
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.subheader("Volume by Muscle Group")
+            fig, ax = plt.subplots()
+            df.groupby('Category')['Volume'].sum().sort_values().plot(kind='barh', color='#3498db', ax=ax)
+            st.pyplot(fig)
+        
+        with col_right:
+            st.subheader("Training Consistency")
+            df['Day'] = df['Date'].dt.date
+            daily_vol = df.groupby('Day')['Volume'].sum().reset_index()
+            st.line_chart(daily_vol.set_index('Day'))
 
-        # CHART 2: Exercise Progression
-        st.subheader(f"Progression: {target_ex}")
-        prog_data = df[df['Exercise'] == target_ex].groupby('Date')['SetVolume'].sum().reset_index()
+# B. LOG IMPORTER
+elif menu == "Log Importer":
+    st.title("📝 Data Entry")
+    st.markdown("Paste your workout log below using the standard format.")
+    
+    col_input, col_help = st.columns([2, 1])
+    
+    with col_help:
+        st.warning("**Required Format:**")
+        st.code("Date:2026-01-23\n\nExercise Name(Weight)\n1->Reps\n2->Reps", language="text")
+        st.info("If no weight is listed, it defaults to 0 (Bodyweight).")
+
+    with col_input:
+        log_text = st.text_area("Raw Workout Log", height=300, placeholder="Date:2026-01-29...")
+        if st.button("Save Workout"):
+            if "Date:" in log_text:
+                parsed_workout = parse_workout_log(log_text)
+                # Avoid duplicates: remove old entry for same date
+                st.session_state['workout_history'] = [w for w in st.session_state['workout_history'] if w['date'] != parsed_workout['date']]
+                st.session_state['workout_history'].append(parsed_workout)
+                st.success(f"Successfully saved session for {parsed_workout['date']}")
+            else:
+                st.error("Log must start with 'Date:YYYY-MM-DD'")
+
+# C. PROGRESSION DEEP-DIVE
+elif menu == "Progression Deep-Dive":
+    st.title("📈 Detailed Analysis")
+    if not st.session_state['workout_history']:
+        st.error("Please add data first.")
+    else:
+        df = process_data(st.session_state['workout_history'])
+        df_metrics = df.groupby(['Date', 'Exercise']).agg(
+            TotalVolume=('Volume', 'sum'), MaxWeight=('Weight', 'max'), AvgReps=('Reps', 'mean')
+        ).reset_index()
+
+        # Selection Logic
+        latest_date = df['Date'].max()
+        auto_targets = df[df['Date'] == latest_date]['Exercise'].unique().tolist()
         
-        prog_chart = alt.Chart(prog_data).mark_line(point=True).encode(
-            x='Date:T',
-            y=alt.Y('SetVolume:Q', title='Daily Volume (kg)'),
-            tooltip=['Date', 'SetVolume']
-        ).properties(height=300)
-        st.altair_chart(prog_chart, use_container_width=True)
-        
-        # Download data
-        st.sidebar.divider()
-        json_string = json.dumps(st.session_state['data'], indent=4)
-        st.sidebar.download_button(
-            label="Download Data as JSON",
-            data=json_string,
-            file_name="workout_data.json",
-            mime="application/json"
-        )
+        target_ex = st.multiselect("Select Exercises to Analyze:", df['Exercise'].unique(), default=auto_targets[:2])
+
+        for exercise in target_ex:
+            data = df_metrics[df_metrics['Exercise'] == exercise].sort_values('Date')
+            
+            with st.container():
+                st.subheader(f"Exercise: {exercise}")
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+                
+                # Volume & Strength
+                sns.lineplot(data=data, x='Date', y='TotalVolume', ax=ax1, marker='o', color='#3498db', label='Volume (kg)')
+                ax1_twin = ax1.twinx()
+                sns.lineplot(data=data, x='Date', y='MaxWeight', ax=ax1_twin, marker='s', color='#e74c3c', label='Max Weight (kg)')
+                ax1.set_ylabel("Volume (kg)", color="#3498db")
+                ax1_twin.set_ylabel("Max Weight (kg)", color="#e74c3c")
+                
+                # Reps
+                ax2.bar(data['Date'], data['AvgReps'], color='#2ecc71', alpha=0.5)
+                ax2.set_ylabel("Avg Reps")
+                ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+                
+                st.pyplot(fig)
+                plt.close()
+
+# D. DATA MANAGEMENT
+elif menu == "Data Management":
+    st.title("💾 Data Export/Import")
+    st.write("Manage your persistent workout file.")
+    
+    # Download
+    json_output = json.dumps(st.session_state['workout_history'], indent=4)
+    st.download_button("Download workout_data.json", json_output, file_name="workout_data.json", mime="application/json")
+    
+    st.divider()
+    
+    # Reset
+    if st.button("⚠️ Clear All Local Data"):
+        st.session_state['workout_history'] = []
+        st.rerun()
