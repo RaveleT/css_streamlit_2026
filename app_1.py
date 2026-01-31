@@ -194,7 +194,7 @@ elif menu == "Data Management":
             st.session_state['workout_history'] = []
             st.rerun()
     with c2:
-        if st.button("🔄 Reload from Secrets"):
+        if st.button("🔄 Reload Demo Data"):
             st.session_state['workout_history'] = load_initial_data()
             st.rerun()
     
@@ -204,4 +204,5 @@ elif menu == "Data Management":
         st.session_state['workout_history'] = json.load(up)
         st.rerun()
     st.download_button("📤 Export State", data=json.dumps(st.session_state['workout_history'], indent=4), file_name="fitness_os.json")
+
 
