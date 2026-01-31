@@ -30,10 +30,17 @@ st.markdown("""
 @st.cache_data
 def load_initial_data():
     if "workout_data" in st.secrets:
+        raw_json = st.secrets["workout_data"].strip()
+        
+        # Self-healing logic: Auto-fix 'None' to 'null' just in case
+        raw_json = raw_json.replace(": None", ": null").replace(":None", ":null")
+        
         try:
-            return json.loads(st.secrets["workout_data"])
-        except json.JSONDecodeError:
-            st.error("Error decoding JSON from secrets.")
+            return json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ JSON Syntax Error: {e.msg} at line {e.lineno}, column {e.colno}")
+            # Show a snippet of where the error is to help you find it
+            st.info(f"Problem snippet: ...{raw_json[max(0, e.pos-20):e.pos+20]}...")
             return []
     return []
 
@@ -197,3 +204,4 @@ elif menu == "Data Management":
         st.session_state['workout_history'] = json.load(up)
         st.rerun()
     st.download_button("📤 Export State", data=json.dumps(st.session_state['workout_history'], indent=4), file_name="fitness_os.json")
+
