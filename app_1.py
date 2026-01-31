@@ -26,23 +26,16 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONFIGURATION & FULL DUMMY DATA ---
-DUMMY_DATA = [
-    {"date":"2025-12-15","exercises":[{"name":"Barbell Bench Press","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"30"},{"name":"Push Ups","sets":[{"set":1,"reps":15},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":None},{"name":"Dumbbell Overhead Press","sets":[{"set":1,"reps":1},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"20"},{"name":"Dynamique Crunch","sets":[{"set":1,"reps":15},{"set":2,"reps":20},{"set":3,"reps":20}],"weight":None},{"name":"Dumbbell Triceps Kickbacks","sets":[{"set":1,"reps":15},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":"9.5"},{"name":"Ab Wheel Rollout","sets":[{"set":1,"reps":5},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":None},{"name":"Kettlebell Goblet Squat","sets":[{"set":1,"reps":15},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":"10"},{"name":"Dumbbell Lateral Raise","sets":[{"set":1,"reps":12},{"set":2,"reps":12},{"set":3,"reps":12}],"weight":"9.5"},{"name":"Kettlebell Overhead Triceps Extension","sets":[{"set":1,"reps":12},{"set":2,"reps":12},{"set":3,"reps":12}],"weight":"10"},{"name":"Rotating Biceps Curl","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"9.5"}]},
-    {"date":"2025-12-16","exercises":[{"name":"Rotating Biceps Curl","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"9.5"},{"name":"Cycling","sets":[{"set":1,"reps":30}],"weight":None}]},
-    {"date":"2025-12-18","exercises":[{"name":"Barbell Row","sets":[{"set":1,"reps":12},{"set":2,"reps":12}],"weight":"30"},{"name":"Push Ups","sets":[{"set":1,"reps":20}],"weight":None},{"name":"Cycling","sets":[{"set":1,"reps":45}],"weight":None}]},
-    {"date":"2025-12-19","exercises":[{"name":"Kettlebell Goblet Squat","sets":[{"set":1,"reps":15},{"set":2,"reps":15}],"weight":"10"},{"name":"Kettlebell Swings","sets":[{"set":1,"reps":20},{"set":2,"reps":20}],"weight":"10"}]},
-    {"date":"2025-12-21","exercises":[{"name":"Cycling","sets":[{"set":1,"reps":60}],"weight":None},{"name":"Plank","sets":[{"set":1,"reps":60}],"weight":None}]},
-    {"date":"2025-12-22","exercises":[{"name":"Dynamique Crunch","sets":[{"set":1,"reps":15},{"set":2,"reps":20},{"set":3,"reps":20}],"weight":None},{"name":"Dumbbell Triceps Kickbacks","sets":[{"set":1,"reps":15},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":"9.5"},{"name":"Ab Wheel Rollout","sets":[{"set":1,"reps":10},{"set":2,"reps":10}],"weight":None},{"name":"Kettlebell Goblet Squat","sets":[{"set":1,"reps":15},{"set":2,"reps":15}],"weight":"10"},{"name":"Dumbbell Lateral Raise","sets":[{"set":1,"reps":12},{"set":2,"reps":12},{"set":3,"reps":12},{"set":4,"reps":12}],"weight":"9.5"},{"name":"Kettlebell Overhead Triceps Extension","sets":[{"set":1,"reps":12},{"set":2,"reps":12},{"set":3,"reps":12},{"set":4,"reps":12}],"weight":"10"},{"name":"Rotating Biceps Curl","sets":[{"set":1,"reps":10},{"set":2,"reps":20},{"set":3,"reps":20}],"weight":"9.5"}]},
-    {"date":"2025-12-23","exercises":[{"name":"Kettlebell Goblet Squat","sets":[{"set":1,"reps":15},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":"10"},{"name":"Barbell RDL","sets":[{"set":1,"reps":10},{"set":2,"reps":16},{"set":3,"reps":16}],"weight":"30"},{"name":"Kettlebell Swings","sets":[{"set":1,"reps":20},{"set":2,"reps":20},{"set":3,"reps":20}],"weight":"10"},{"name":"Bodyweight Lunges","sets":[{"set":1,"reps":15},{"set":2,"reps":17},{"set":3,"reps":18}],"weight":None},{"name":"Kettlebell Forward Lunges","sets":[{"set":1,"reps":15},{"set":2,"reps":14},{"set":3,"reps":16}],"weight":"10"},{"name":"Dumbbell Lateral Raise","sets":[{"set":1,"reps":12},{"set":2,"reps":12},{"set":3,"reps":12},{"set":4,"reps":12}],"weight":"9.5"},{"name":"Cycling","sets":[{"set":1,"reps":70},{"set":2,"reps":75},{"set":3,"reps":80}],"weight":None},{"name":"Plank","sets":[{"set":1,"reps":60},{"set":2,"reps":60},{"set":3,"reps":60}],"weight":None}]},
-    {"date":"2026-01-05","exercises":[{"name":"Cycling","sets":[{"set":1,"reps":40}],"weight":None},{"name":"Push Ups","sets":[{"set":1,"reps":15},{"set":2,"reps":15}],"weight":None}]},
-    {"date":"2026-01-08","exercises":[{"name":"Barbell Bench Press","sets":[{"set":1,"reps":10},{"set":2,"reps":10}],"weight":"30"},{"name":"Cycling","sets":[{"set":1,"reps":30}],"weight":None}]},
-    {"date":"2026-01-12","exercises":[{"name":"Kettlebell Goblet Squat","sets":[{"set":1,"reps":12},{"set":2,"reps":12}],"weight":"10"},{"name":"Dumbbell Squat Jumps","sets":[{"set":1,"reps":10}],"weight":"10"}]},
-    {"date":"2026-01-15","exercises":[{"name":"Cycling","sets":[{"set":1,"reps":50}],"weight":None},{"name":"Plank","sets":[{"set":1,"reps":60}],"weight":None}]},
-    {"date":"2026-01-19","exercises":[{"name":"Rotating Biceps Curl","sets":[{"set":1,"reps":12}],"weight":"9.5"},{"name":"Barbell Row","sets":[{"set":1,"reps":10}],"weight":"30"}]},
-    {"date":"2026-01-22","exercises":[{"name":"Barbell Row","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"30"},{"name":"Dumbbell Single-Arm Row-Right","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"9.5"},{"name":"Dumbbell Single-Arm Row-Left","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"9.5"},{"name":"Kettlebell High Pull","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":12}],"weight":"10"},{"name":"Ab Wheel Rollout","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":12}],"weight":None},{"name":"Barbell Bicep Curl","sets":[{"set":1,"reps":10},{"set":2,"reps":4},{"set":3,"reps":5}],"weight":"9.5"},{"name":"Dumbbell Shrug","sets":[{"set":1,"reps":10},{"set":2,"reps":15},{"set":3,"reps":10}],"weight":"9.5"}]},
-    {"date":"2026-01-23","exercises":[{"name":"Barbell Thrusters","sets":[{"set":1,"reps":4},{"set":2,"reps":5},{"set":3,"reps":4}],"weight":"30","muscle":"Quads / Shoulders"},{"name":"Dumbbell Step-Ups","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"29.5","muscle":"Quads / Glutes"},{"name":"Kettlebell Halos","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":"10","muscle":"Shoulders / Core"},{"name":"Push Ups","sets":[{"set":1,"reps":16},{"set":2,"reps":16},{"set":3,"reps":7}],"weight":None,"muscle":"Chest / Shoulders"},{"name":"Dumbbell Squat Jumps","sets":[{"set":1,"reps":10},{"set":2,"reps":15},{"set":3,"reps":15}],"weight":"10","muscle":"Quads / Calves"},{"name":"Kettlebell Side Swings","sets":[{"set":1,"reps":10},{"set":2,"reps":10},{"set":3,"reps":10}],"weight":None,"muscle":"Core / Shoulders"},{"name":"Plank","sets":[{"set":1,"reps":60},{"set":2,"reps":60},{"set":3,"reps":60}],"weight":None,"muscle":"Core / Stabilizer"}]}
-]
+# --- 2. DATA LOADING FROM SECRETS ---
+@st.cache_data
+def load_initial_data():
+    if "workout_data" in st.secrets:
+        try:
+            return json.loads(st.secrets["workout_data"])
+        except json.JSONDecodeError:
+            st.error("Error decoding JSON from secrets.")
+            return []
+    return []
 
 MUSCLE_LOOKUP = {
     "Barbell Bench Press": "Chest", "Push Ups": "Chest / Shoulders",
@@ -57,7 +50,7 @@ MUSCLE_LOOKUP = {
 }
 
 if 'workout_history' not in st.session_state:
-    st.session_state['workout_history'] = DUMMY_DATA
+    st.session_state['workout_history'] = load_initial_data()
 
 # --- 3. LOGIC FUNCTIONS ---
 def clean_weight(val):
@@ -157,7 +150,6 @@ if menu == "Dashboard":
         st.plotly_chart(px.bar(consistency, x='Day', y='Sessions', template="plotly_dark", color_discrete_sequence=['#FF4F0F']), use_container_width=True)
 
         st.divider()
-        # --- REVERTED: TOP EXERCISE ASSETS CHART ---
         st.markdown("### 🏆 Top Exercise Assets")
         top_ex = df.groupby('Exercise').size().reset_index(name='Freq').sort_values('Freq').tail(10)
         st.plotly_chart(px.bar(top_ex, x='Freq', y='Exercise', orientation='h', template="plotly_dark", color_discrete_sequence=['#03A6A1']), use_container_width=True)
@@ -195,8 +187,8 @@ elif menu == "Data Management":
             st.session_state['workout_history'] = []
             st.rerun()
     with c2:
-        if st.button("🔄 Restore Demo Data"):
-            st.session_state['workout_history'] = DUMMY_DATA
+        if st.button("🔄 Reload from Secrets"):
+            st.session_state['workout_history'] = load_initial_data()
             st.rerun()
     
     st.divider()
@@ -205,8 +197,3 @@ elif menu == "Data Management":
         st.session_state['workout_history'] = json.load(up)
         st.rerun()
     st.download_button("📤 Export State", data=json.dumps(st.session_state['workout_history'], indent=4), file_name="fitness_os.json")
-
-    # --- JSON STRUCTURE PREVIEW ---
-    with st.expander("ℹ️ View JSON Data Format Requirement"):
-        st.markdown("Ensure your `.json` file follows this nested structure for bulk imports:")
-        st.code(json.dumps(DUMMY_DATA[0:1], indent=4), language="json")
