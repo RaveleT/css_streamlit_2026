@@ -243,9 +243,9 @@ elif menu == "Dashboard":
         st.plotly_chart(px.bar(consistency, x='Day', y='Sessions', template="plotly_dark", color_discrete_sequence=['#FF4F0F']), use_container_width=True)
 
         st.divider()
-            st.markdown("### 🏆 Top Exercise Assets")
-            top_ex = df.groupby('Exercise').size().reset_index(name='Freq').sort_values('Freq').tail(10)
-            st.plotly_chart(px.bar(top_ex, x='Freq', y='Exercise', orientation='h', template="plotly_dark", color_discrete_sequence=['#03A6A1']), use_container_width=True)
+        st.markdown("### 🏆 Top Exercise Assets")
+        top_ex = df.groupby('Exercise').size().reset_index(name='Freq').sort_values('Freq').tail(10)
+        st.plotly_chart(px.bar(top_ex, x='Freq', y='Exercise', orientation='h', template="plotly_dark", color_discrete_sequence=['#03A6A1']), use_container_width=True)
 
 # --- 7. LOG IMPORTER ---
 elif menu == "Log Importer":
@@ -295,4 +295,5 @@ elif menu == "Data Management":
         st.session_state['workout_history'] = json.load(up)
         st.rerun()
     st.download_button("📤 Export State", data=json.dumps(st.session_state['workout_history'], indent=4), file_name="fitness_os.json")
+
 
