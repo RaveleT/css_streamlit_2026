@@ -6,6 +6,21 @@ import plotly.graph_objects as go
 import re
 from datetime import datetime
 
+# --- 0. Page Configuration & UI Cleanup ---
+st.set_page_config(layout="wide", page_title="Digital Twin")
+
+# Custom CSS to hide the GitHub icon, Deploy button, and footer
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stAppDeployButton {display:none !important;}
+            div[data-testid="stToolbar"] {display: none !important;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 # --- 1. SETTINGS & LUXE DARK THEME ---
 st.set_page_config(page_title="Fitness OS 2026", layout="wide", page_icon="⚖️")
 
@@ -295,5 +310,6 @@ elif menu == "Data Management":
         st.session_state['workout_history'] = json.load(up)
         st.rerun()
     st.download_button("📤 Export State", data=json.dumps(st.session_state['workout_history'], indent=4), file_name="fitness_os.json")
+
 
 
